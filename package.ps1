@@ -62,6 +62,7 @@ try {
     }
     Add-File $zip "$root\third-party\BepInEx-LICENSE.txt" 'BepInEx\licenses\BepInEx-LICENSE.txt'
     Add-File $zip $dll 'BepInEx\plugins\PatchFace\PatchFace.dll'
+    Add-File $zip "$root\LICENSE" 'BepInEx\plugins\PatchFace\LICENSE.txt'
     Add-File $zip "$root\README.md" 'PatchFace-README.txt'
 }
 finally {
@@ -73,6 +74,7 @@ finally {
 $zip = New-Zip $modOnly
 try {
     Add-File $zip $dll 'BepInEx\plugins\PatchFace\PatchFace.dll'
+    Add-File $zip "$root\LICENSE" 'BepInEx\plugins\PatchFace\LICENSE.txt'
     Add-File $zip "$root\README.md" 'PatchFace-README.txt'
 }
 finally {

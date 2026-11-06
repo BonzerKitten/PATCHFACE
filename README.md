@@ -52,6 +52,11 @@ Steam's "Verify integrity of game files" does not remove the mod.
 The mod writes what it does to `BepInEx\LogOutput.log`. If a game update breaks one feature,
 the log names it and the other features keep working.
 
+## License
+
+PatchFace is released under the MIT license (see `LICENSE`, also included in
+`BepInEx\plugins\PatchFace`). It contains no game files.
+
 ## Credits
 
 Built on [BepInEx](https://github.com/BepInEx/BepInEx) 5.4.23.6 (MIT license, included in
