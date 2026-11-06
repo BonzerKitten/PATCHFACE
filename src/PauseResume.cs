@@ -1,24 +1,21 @@
-using System.Collections.Generic;
-using System.Text;
-using Rewired;
+using HarmonyLib;
 using Rewired.UI.ControlMapper;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace PatchFace
 {
     /// <summary>
     /// Lets the pause key also close the pause menu. When the game pauses it switches off the
     /// controls that the pause key belongs to, so the game itself never sees the second press.
-    /// We read the key's bindings directly (so rebinding still works) and close the menu the same
-    /// way the game does, which also steps back from the Options screen first.
+    /// On the main pause screen we press the Resume button (exactly what a mouse click does).
+    /// On the Options screen we use the game's own step back to the pause screen.
     /// </summary>
     internal static class PauseResume
     {
-        private const string PauseAction = "UI Pause";
-
-        private static readonly List<ActionElementMap> buffer = new List<ActionElementMap>();
         private static bool menuWasOpen;
-        private static bool bindingsLogged;
+        private static PlayerOptions cachedOptions;
+        private static Button cachedResume;
 
         internal static void OnSceneLoaded()
         {
@@ -38,40 +35,49 @@ namespace PatchFace
             }
 
             bool open = options.menuOpen;
-            if (open && !bindingsLogged)
-            {
-                bindingsLogged = true;
-                LogBindings(input._player);
-            }
             // Only react if the menu was already open last frame, so the press that opened it doesn't also close it.
-            if (open && menuWasOpen && PausePressed(input._player) && !ControlsScreenOpen())
+            if (open && menuWasOpen && !ControlsScreenOpen() && EscKey.Consume(input._player))
             {
-                options.ToggleMenu();
+                GameObject optionsScreen = Traverse.Create(options).Field("optionsMenu").GetValue<GameObject>();
+                Button resume = ResumeButton(options);
+                if (optionsScreen != null && optionsScreen.activeInHierarchy)
+                {
+                    options.ToggleMenu(); // the game's own "back to the pause screen"
+                }
+                else if (resume != null && resume.isActiveAndEnabled && resume.interactable)
+                {
+                    resume.onClick.Invoke();
+                }
+                else
+                {
+                    options.ToggleMenu();
+                }
                 open = options.menuOpen;
             }
             menuWasOpen = open;
         }
 
-        private static bool PausePressed(Player player)
+        /// <summary>The Resume button is the one whose click calls PlayerOptions.ToggleMenu.</summary>
+        private static Button ResumeButton(PlayerOptions options)
         {
-            foreach (ControllerMap map in player.controllers.maps.GetAllMaps())
+            if (cachedOptions == options && cachedResume != null)
             {
-                Controller controller = map.controller;
-                if (controller == null)
+                return cachedResume;
+            }
+            cachedOptions = options;
+            cachedResume = null;
+            foreach (Button button in options.GetComponentsInChildren<Button>(true))
+            {
+                for (int i = 0; i < button.onClick.GetPersistentEventCount(); i++)
                 {
-                    continue;
-                }
-                buffer.Clear();
-                map.GetElementMapsWithAction(PauseAction, false, buffer);
-                foreach (ActionElementMap element in buffer)
-                {
-                    if (element.elementType == ControllerElementType.Button && controller.GetButtonDownById(element.elementIdentifierId))
+                    if (button.onClick.GetPersistentTarget(i) == options && button.onClick.GetPersistentMethodName(i) == nameof(PlayerOptions.ToggleMenu))
                     {
-                        return true;
+                        cachedResume = button;
+                        return button;
                     }
                 }
             }
-            return false;
+            return null;
         }
 
         /// <summary>The key rebinding screen uses the same keys, so leave it alone while it is open.</summary>
@@ -85,23 +91,6 @@ namespace PatchFace
                 }
             }
             return false;
-        }
-
-        private static void LogBindings(Player player)
-        {
-            StringBuilder sb = new StringBuilder("Pause key bindings:");
-            foreach (ControllerMap map in player.controllers.maps.GetAllMaps())
-            {
-                buffer.Clear();
-                map.GetElementMapsWithAction(PauseAction, false, buffer);
-                foreach (ActionElementMap element in buffer)
-                {
-                    InputMapCategory category = ReInput.mapping.GetMapCategory(map.categoryId);
-                    sb.Append(" [" + map.controllerType + " " + element.elementIdentifierName
-                        + ", category '" + (category != null ? category.name : "?") + "', map enabled " + map.enabled + "]");
-                }
-            }
-            Plugin.Log.LogInfo(sb.ToString());
         }
     }
 }

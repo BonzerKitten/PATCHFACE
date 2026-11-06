@@ -47,6 +47,24 @@ namespace PatchFace
             return input != null && input._playerEnabled && !input._disableAllControls && !MenuOpen() && !Dead();
         }
 
+        /// <summary>
+        /// With bare hands, right click is push, which repeats for as long as the button is held.
+        /// Every other item uses right click as a stance (aim, block, aim a throw), which suits a toggle.
+        /// Bare hands are the melee item with id -1 that is not throwable (same test as Melee.Update).
+        /// </summary>
+        private static bool BareHands()
+        {
+            Equipment equipment = Equipment.Instance;
+            if (equipment == null)
+            {
+                return false;
+            }
+            Melee melee = equipment.GetComponentInChildren<Melee>(false);
+            return melee != null && melee._meleeData != null && melee._meleeData.id == -1 && !melee._meleeData._throwable;
+        }
+
+        private static bool aimToggleApplies;
+
         internal static void Reset(string reason)
         {
             if (sprintOn || aimOn)
@@ -82,7 +100,12 @@ namespace PatchFace
 
             Player player = input._player;
             bool toggleSprint = Plugin.ToggleSprint.Value;
-            bool toggleAim = Plugin.ToggleAim.Value;
+            bool toggleAim = Plugin.ToggleAim.Value && !BareHands();
+            aimToggleApplies = toggleAim;
+            if (!toggleAim)
+            {
+                aimOn = false;
+            }
 
             if (toggleAim && player.GetButtonDown(AimAction))
             {
@@ -157,7 +180,7 @@ namespace PatchFace
                 }
                 else if (actionName == AimAction)
                 {
-                    if (Plugin.ToggleAim.Value && PlayerInControl())
+                    if (aimToggleApplies && PlayerInControl())
                     {
                         __result = aimOn;
                     }
