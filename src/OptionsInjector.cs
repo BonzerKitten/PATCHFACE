@@ -35,7 +35,7 @@ namespace PatchFace
             {
                 if (menu.gameObject.scene.IsValid())
                 {
-                    Inject(menu._volumeSlider, menu._crosshairToggle);
+                    Inject("main menu", menu._volumeSlider, menu._crosshairToggle);
                 }
             }
             foreach (PlayerOptions options in Resources.FindObjectsOfTypeAll<PlayerOptions>())
@@ -43,7 +43,7 @@ namespace PatchFace
                 if (options.gameObject.scene.IsValid())
                 {
                     Traverse fields = Traverse.Create(options);
-                    Inject(fields.Field("volumeSlider").GetValue<Slider>(), fields.Field("crosshairToggle").GetValue<Toggle>());
+                    Inject("pause menu", fields.Field("volumeSlider").GetValue<Slider>(), fields.Field("crosshairToggle").GetValue<Toggle>());
                 }
             }
         }
@@ -68,26 +68,39 @@ namespace PatchFace
             }
         }
 
-        private static void Inject(Slider volume, Toggle crosshair)
+        private static void Inject(string screen, Slider volume, Toggle crosshair)
         {
-            if (volume != null)
+            if (volume == null)
             {
-                AddMusicSlider(volume);
+                Plugin.Log.LogWarning("Options (" + screen + "): volume slider not found, MUSIC slider not added");
             }
-            if (crosshair != null)
+            else if (AddMusicSlider(volume))
             {
-                AddToggle(crosshair, SprintRowName, "TOGGLE SPRINT", Plugin.ToggleSprint);
-                AddToggle(crosshair, AimRowName, "TOGGLE AIM", Plugin.ToggleAim);
+                Plugin.Log.LogInfo("Options (" + screen + "): added MUSIC slider under VOLUME");
+            }
+            if (crosshair == null)
+            {
+                Plugin.Log.LogWarning("Options (" + screen + "): crosshair checkbox not found, toggle checkboxes not added");
+            }
+            else
+            {
+                bool sprintAdded = AddToggle(crosshair, SprintRowName, "TOGGLE SPRINT", Plugin.ToggleSprint);
+                bool aimAdded = AddToggle(crosshair, AimRowName, "TOGGLE AIM", Plugin.ToggleAim);
+                if (sprintAdded || aimAdded)
+                {
+                    Plugin.Log.LogInfo("Options (" + screen + "): added TOGGLE SPRINT and TOGGLE AIM checkboxes");
+                }
             }
         }
 
-        private static void AddMusicSlider(Slider volume)
+        /// <summary>Returns true if the slider was added (false if it was already there).</summary>
+        private static bool AddMusicSlider(Slider volume)
         {
             Transform row = volume.transform.parent;
             Transform column = row != null ? row.parent : null;
             if (column == null || column.Find(MusicRowName) != null)
             {
-                return;
+                return false;
             }
             GameObject copy = Object.Instantiate(row.gameObject, column);
             copy.name = MusicRowName;
@@ -107,14 +120,16 @@ namespace PatchFace
                 number._sliderToMatch = slider;
             }
             musicSliders.Add(slider);
+            return true;
         }
 
-        private static void AddToggle(Toggle template, string rowName, string label, ConfigEntry<bool> setting)
+        /// <summary>Returns true if the checkbox was added (false if it was already there).</summary>
+        private static bool AddToggle(Toggle template, string rowName, string label, ConfigEntry<bool> setting)
         {
             Transform column = template.transform.parent;
             if (column == null || column.Find(rowName) != null)
             {
-                return;
+                return false;
             }
             GameObject copy = Object.Instantiate(template.gameObject, column);
             copy.name = rowName;
@@ -136,6 +151,7 @@ namespace PatchFace
             });
             UseAutomaticNavigation(toggle);
             toggles.Add(new KeyValuePair<Toggle, ConfigEntry<bool>>(toggle, setting));
+            return true;
         }
 
         /// <summary>The row's label is its first text that isn't a slider's number display.</summary>

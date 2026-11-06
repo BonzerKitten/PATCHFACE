@@ -17,6 +17,7 @@ namespace PatchFace
         private const string ComposerTag = "(crisp)";
 
         private static float nextScan;
+        private static readonly System.Collections.Generic.HashSet<int> skipped = new System.Collections.Generic.HashSet<int>();
 
         internal static void Update()
         {
@@ -79,7 +80,10 @@ namespace PatchFace
             // A filter affects everything on its object, so only tag objects that hold just this music.
             if (go.GetComponents<AudioSource>().Length != 1 || go.GetComponent<AudioListener>() != null)
             {
-                Plugin.Log.LogWarning("Music source shares its object with other audio, not adjusted: " + go.name);
+                if (skipped.Add(go.GetInstanceID()))
+                {
+                    Plugin.Log.LogWarning("Music source shares its object with other audio, not adjusted: " + go.scene.name + "/" + go.name);
+                }
                 return;
             }
             go.AddComponent<MusicVolumeFilter>();

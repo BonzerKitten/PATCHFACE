@@ -64,6 +64,7 @@ namespace PatchFace
         }
 
         private static bool aimToggleApplies;
+        private static bool wasBareHands;
 
         internal static void Reset(string reason)
         {
@@ -100,16 +101,26 @@ namespace PatchFace
 
             Player player = input._player;
             bool toggleSprint = Plugin.ToggleSprint.Value;
-            bool toggleAim = Plugin.ToggleAim.Value && !BareHands();
+            bool bareHands = Plugin.ToggleAim.Value && BareHands();
+            if (bareHands != wasBareHands)
+            {
+                wasBareHands = bareHands;
+                Plugin.Log.LogInfo(bareHands
+                    ? "Bare hands: right click (push) works the game's normal way"
+                    : "Holding an item: right click is a toggle again");
+            }
+            bool toggleAim = Plugin.ToggleAim.Value && !bareHands;
             aimToggleApplies = toggleAim;
-            if (!toggleAim)
+            if (!toggleAim && aimOn)
             {
                 aimOn = false;
+                Plugin.Log.LogInfo("Aim toggle: OFF (toggle no longer applies)");
             }
 
             if (toggleAim && player.GetButtonDown(AimAction))
             {
                 aimOn = !aimOn;
+                Plugin.Log.LogInfo("Aim toggle: " + (aimOn ? "ON" : "OFF"));
             }
 
             if (toggleSprint && player.GetButtonDown(SprintAction))
@@ -117,11 +128,17 @@ namespace PatchFace
                 if (sprintOn)
                 {
                     sprintOn = false;
+                    Plugin.Log.LogInfo("Sprint toggle: OFF (pressed again)");
                 }
-                else if (!movement._crouching)
+                else if (movement._crouching)
+                {
+                    Plugin.Log.LogInfo("Sprint press ignored: crouched");
+                }
+                else
                 {
                     sprintOn = true;
                     sprintStartedAt = Time.time;
+                    Plugin.Log.LogInfo("Sprint toggle: ON" + (aimOn ? " (aim turned off)" : ""));
                     aimOn = false; // sprint while aiming: stop aiming and run
                 }
             }
@@ -132,7 +149,7 @@ namespace PatchFace
                 if (reason != null)
                 {
                     sprintOn = false;
-                    Plugin.Log.LogInfo("Sprint ended: " + reason);
+                    Plugin.Log.LogInfo("Sprint toggle: OFF (" + reason + ")");
                 }
             }
         }

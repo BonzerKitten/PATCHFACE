@@ -1,4 +1,3 @@
-using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -27,7 +26,7 @@ namespace PatchFace
             }
             if (ourText == null || gameText != equipment._ammo)
             {
-                Setup(equipment._ammo, health);
+                Setup(equipment._ammo);
             }
 
             gameText.enabled = false;
@@ -50,7 +49,7 @@ namespace PatchFace
             }
         }
 
-        private void Setup(Text source, PlayerHealth health)
+        private void Setup(Text source)
         {
             if (ourText != null)
             {
@@ -70,13 +69,7 @@ namespace PatchFace
                 infinity = "INF";
             }
 
-            string components = string.Join(", ", System.Array.ConvertAll(source.GetComponents<Component>(), c => c.GetType().Name));
-            Plugin.Log.LogInfo("HUD set up. Ammo text components: " + components + ". Font: " + (font != null ? font.name : "none") + ", infinity shown as '" + infinity + "', alignment " + source.alignment);
-
-            Text hiddenHealth = Traverse.Create(health).Field("healthText").GetValue<Text>();
-            Plugin.Log.LogInfo(hiddenHealth == null
-                ? "Game's own health text: not assigned"
-                : "Game's own health text: '" + hiddenHealth.name + "' active " + hiddenHealth.gameObject.activeInHierarchy + ", enabled " + hiddenHealth.enabled + ", text '" + hiddenHealth.text + "'");
+            Plugin.Log.LogInfo("HUD: ammo counter replaced with the ammo and health line (melee shows " + (infinity == "INF" ? "INF, the font has no infinity sign" : "the infinity sign") + ")");
         }
     }
 }

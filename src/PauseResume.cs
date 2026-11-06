@@ -36,21 +36,28 @@ namespace PatchFace
 
             bool open = options.menuOpen;
             // Only react if the menu was already open last frame, so the press that opened it doesn't also close it.
-            if (open && menuWasOpen && !ControlsScreenOpen() && EscKey.Consume(input._player))
+            if (open && menuWasOpen && EscKey.Consume(input._player))
             {
                 GameObject optionsScreen = Traverse.Create(options).Field("optionsMenu").GetValue<GameObject>();
                 Button resume = ResumeButton(options);
-                if (optionsScreen != null && optionsScreen.activeInHierarchy)
+                if (ControlsScreenOpen())
+                {
+                    Plugin.Log.LogInfo("Esc in pause menu: ignored, the controls screen handles its own keys");
+                }
+                else if (optionsScreen != null && optionsScreen.activeInHierarchy)
                 {
                     options.ToggleMenu(); // the game's own "back to the pause screen"
+                    Plugin.Log.LogInfo("Esc in pause menu: Options -> pause screen");
                 }
                 else if (resume != null && resume.isActiveAndEnabled && resume.interactable)
                 {
                     resume.onClick.Invoke();
+                    Plugin.Log.LogInfo("Esc in pause menu: pressed Resume");
                 }
                 else
                 {
                     options.ToggleMenu();
+                    Plugin.Log.LogWarning("Esc in pause menu: Resume button not found, closed the menu directly");
                 }
                 open = options.menuOpen;
             }

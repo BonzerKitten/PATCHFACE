@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -12,7 +14,7 @@ namespace PatchFace
     {
         public const string Guid = "patchface.pigface";
         public const string ModName = "PatchFace";
-        public const string Version = "0.3.0";
+        public const string Version = "0.3.1";
 
         // Dragging a slider changes the value every frame; write the file once things settle.
         private const float SaveDelay = 0.5f;
@@ -25,6 +27,12 @@ namespace PatchFace
         private readonly AmmoHealthHud hud = new AmmoHealthHud();
         private bool configDirty;
         private float lastConfigChange;
+
+        // Features that already reported an error, so a broken feature logs once instead of every frame.
+        private readonly HashSet<string> failedFeatures = new HashSet<string>();
+
+        // Cached so calling them through Run() doesn't allocate every frame.
+        private Action holdTogglesUpdate, musicVolumeUpdate, pauseLateUpdate, laptopLateUpdate, optionsLateUpdate, hudLateUpdate;
 
         private void Awake()
         {
@@ -40,23 +48,38 @@ namespace PatchFace
                 lastConfigChange = Time.unscaledTime;
             };
 
-            new Harmony(Guid).PatchAll(typeof(Plugin).Assembly);
+            holdTogglesUpdate = HoldToggles.Update;
+            musicVolumeUpdate = MusicVolume.Update;
+            pauseLateUpdate = PauseResume.LateUpdate;
+            laptopLateUpdate = LaptopEscape.LateUpdate;
+            optionsLateUpdate = OptionsInjector.LateUpdate;
+            hudLateUpdate = hud.LateUpdate;
+
+            try
+            {
+                new Harmony(Guid).PatchAll(typeof(Plugin).Assembly);
+            }
+            catch (Exception e)
+            {
+                Log.LogError("Could not hook the game's input; toggle sprint and toggle aim will not work. " + e);
+            }
             SceneManager.sceneLoaded += OnSceneLoaded;
-            Log.LogInfo("PatchFace " + Version + " loaded.");
+            Log.LogInfo("PatchFace " + Version + " loaded. " + SettingsSummary());
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            HoldToggles.Reset("scene loaded: " + scene.name);
-            PauseResume.OnSceneLoaded();
-            MusicVolume.TagScene();
-            OptionsInjector.OnSceneLoaded();
+            Log.LogInfo("Scene loaded: " + scene.name);
+            Run("toggles", () => HoldToggles.Reset("scene loaded: " + scene.name));
+            Run("pause key", PauseResume.OnSceneLoaded);
+            Run("music volume", MusicVolume.TagScene);
+            Run("options screens", OptionsInjector.OnSceneLoaded);
         }
 
         private void Update()
         {
-            HoldToggles.Update();
-            MusicVolume.Update();
+            Run("toggles", holdTogglesUpdate);
+            Run("music volume", musicVolumeUpdate);
             if (configDirty && Time.unscaledTime - lastConfigChange > SaveDelay)
             {
                 SaveConfig();
@@ -65,10 +88,10 @@ namespace PatchFace
 
         private void LateUpdate()
         {
-            PauseResume.LateUpdate();
-            LaptopEscape.LateUpdate();
-            OptionsInjector.LateUpdate();
-            hud.LateUpdate();
+            Run("pause key", pauseLateUpdate);
+            Run("laptop Esc", laptopLateUpdate);
+            Run("options screens", optionsLateUpdate);
+            Run("HUD", hudLateUpdate);
         }
 
         private void OnApplicationQuit()
@@ -79,10 +102,39 @@ namespace PatchFace
             }
         }
 
+        /// <summary>Runs one feature; an error is logged once and the other features keep working.</summary>
+        private void Run(string feature, Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception e)
+            {
+                if (failedFeatures.Add(feature))
+                {
+                    Log.LogError("Error in " + feature + " (further errors from it are not logged): " + e);
+                }
+            }
+        }
+
         private void SaveConfig()
         {
             configDirty = false;
-            Config.Save();
+            try
+            {
+                Config.Save();
+                Log.LogInfo("Settings saved. " + SettingsSummary());
+            }
+            catch (Exception e)
+            {
+                Log.LogError("Could not save settings: " + e.Message);
+            }
+        }
+
+        private static string SettingsSummary()
+        {
+            return "Music volume " + MusicVolumeSetting.Value.ToString("0.00") + ", toggle sprint " + (ToggleSprint.Value ? "on" : "off") + ", toggle aim " + (ToggleAim.Value ? "on" : "off");
         }
     }
 }

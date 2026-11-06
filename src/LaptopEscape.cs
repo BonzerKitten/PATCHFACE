@@ -35,11 +35,14 @@ namespace PatchFace
             Button close = TopCloseButton(station);
             if (close != null)
             {
+                GameObject window = WindowItCloses(close);
                 close.onClick.Invoke();
+                Plugin.Log.LogInfo("Esc at " + station.name + ": closed '" + window.name + "' with its '" + close.name + "' button");
             }
             else
             {
                 station.DetachCamera();
+                Plugin.Log.LogInfo("Esc at " + station.name + ": left the screen");
             }
         }
 
