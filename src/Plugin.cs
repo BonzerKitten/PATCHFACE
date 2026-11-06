@@ -14,7 +14,7 @@ namespace PatchFace
     {
         public const string Guid = "patchface.pigface";
         public const string ModName = "PatchFace";
-        public const string Version = "0.3.1";
+        public const string Version = "1.0.0";
 
         // Dragging a slider changes the value every frame; write the file once things settle.
         private const float SaveDelay = 0.5f;
