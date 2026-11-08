@@ -19,6 +19,18 @@ A quality-of-life mod for PIGFACE. It changes nothing about how the game plays.
 Toggle sprint and toggle aim can be switched off in Options (second page).
 All settings are saved in `BepInEx\config\patchface.pigface.cfg`.
 
+## Screenshots
+
+The same view at three field of view settings. The gun stays the same size, and the
+ammo and health line is at the bottom.
+
+![The same view at 90, 112 and 130 degrees](docs/screenshots/field-of-view.jpg)
+
+The mod's settings in Options: FIELD OF VIEW and MUSIC on the first page, TOGGLE SPRINT
+and TOGGLE AIM on the second.
+
+![The two Options pages with the mod's settings](docs/screenshots/options.jpg)
+
 ## Install
 
 There are two downloads. Pick one:
