@@ -5,6 +5,9 @@ A quality-of-life mod for PIGFACE. It changes nothing about how the game plays.
 ## Features
 
 - **Music volume.** A MUSIC slider under VOLUME in Options, separate from the main volume.
+- **Field of view.** A FIELD OF VIEW slider in Options, from 90 to 130 degrees across a
+  16:9 screen (112 is the game's own view). Aiming and scopes keep their normal zoom
+  strength, and guns and hands look the same as without the mod.
 - **Toggle sprint.** Press sprint once to run, press again to stop. Sprinting also stops
   when you stop moving forward, crouch, aim, jump, climb a ledge, or ride a zipline.
 - **Toggle aim.** Press aim once to aim, press again to stop. With bare hands the button

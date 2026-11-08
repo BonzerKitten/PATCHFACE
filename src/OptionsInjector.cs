@@ -11,7 +11,8 @@ namespace PatchFace
 {
     /// <summary>
     /// Adds the mod's settings to both of the game's Options screens (main menu and pause menu):
-    /// a MUSIC slider under VOLUME, and TOGGLE SPRINT / TOGGLE AIM checkboxes on the second page.
+    /// a MUSIC slider under VOLUME, a FIELD OF VIEW slider under the last sensitivity slider
+    /// (the second page has no room left), and TOGGLE SPRINT / TOGGLE AIM checkboxes on the second page.
     /// Each control is a copy of one of the game's own, so it looks and behaves the same.
     /// The copies get fresh events, so they never call the game's original handlers
     /// (a copied volume slider would otherwise also change the main volume).
@@ -20,22 +21,23 @@ namespace PatchFace
     internal static class OptionsInjector
     {
         private const string MusicRowName = "PatchFace music slider";
+        private const string FovRowName = "PatchFace field of view slider";
         private const string SprintRowName = "PatchFace sprint toggle";
         private const string AimRowName = "PatchFace aim toggle";
 
-        private static readonly List<Slider> musicSliders = new List<Slider>();
+        private static readonly List<KeyValuePair<Slider, ConfigEntry<float>>> sliders = new List<KeyValuePair<Slider, ConfigEntry<float>>>();
         private static readonly List<KeyValuePair<Toggle, ConfigEntry<bool>>> toggles = new List<KeyValuePair<Toggle, ConfigEntry<bool>>>();
 
         internal static void OnSceneLoaded()
         {
-            musicSliders.RemoveAll(s => s == null);
+            sliders.RemoveAll(s => s.Key == null);
             toggles.RemoveAll(t => t.Key == null);
 
             foreach (MainMenu menu in Resources.FindObjectsOfTypeAll<MainMenu>())
             {
                 if (menu.gameObject.scene.IsValid())
                 {
-                    Inject("main menu", menu._volumeSlider, menu._crosshairToggle);
+                    Inject("main menu", menu._volumeSlider, menu.joystickScopeSensSlider, menu._crosshairToggle);
                 }
             }
             foreach (PlayerOptions options in Resources.FindObjectsOfTypeAll<PlayerOptions>())
@@ -43,7 +45,7 @@ namespace PatchFace
                 if (options.gameObject.scene.IsValid())
                 {
                     Traverse fields = Traverse.Create(options);
-                    Inject("pause menu", fields.Field("volumeSlider").GetValue<Slider>(), fields.Field("crosshairToggle").GetValue<Toggle>());
+                    Inject("pause menu", fields.Field("volumeSlider").GetValue<Slider>(), fields.Field("joystickScopeSensSlider").GetValue<Slider>(), fields.Field("crosshairToggle").GetValue<Toggle>());
                 }
             }
         }
@@ -51,12 +53,11 @@ namespace PatchFace
         /// <summary>Keeps every copy showing the current value (both screens share the same settings).</summary>
         internal static void LateUpdate()
         {
-            float music = Plugin.MusicVolumeSetting.Value;
-            foreach (Slider slider in musicSliders)
+            foreach (KeyValuePair<Slider, ConfigEntry<float>> pair in sliders)
             {
-                if (slider != null && Mathf.Abs(slider.value - music) > 0.0005f)
+                if (pair.Key != null && Mathf.Abs(pair.Key.value - pair.Value.Value) > 0.0005f)
                 {
-                    slider.SetValueWithoutNotify(music);
+                    pair.Key.SetValueWithoutNotify(pair.Value.Value);
                 }
             }
             foreach (KeyValuePair<Toggle, ConfigEntry<bool>> pair in toggles)
@@ -68,15 +69,23 @@ namespace PatchFace
             }
         }
 
-        private static void Inject(string screen, Slider volume, Toggle crosshair)
+        private static void Inject(string screen, Slider volume, Slider lastSensitivity, Toggle crosshair)
         {
             if (volume == null)
             {
                 Plugin.Log.LogWarning("Options (" + screen + "): volume slider not found, MUSIC slider not added");
             }
-            else if (AddMusicSlider(volume))
+            else if (AddSlider(volume, MusicRowName, "MUSIC", 0f, 1f, false, Plugin.MusicVolumeSetting))
             {
                 Plugin.Log.LogInfo("Options (" + screen + "): added MUSIC slider under VOLUME");
+            }
+            if (lastSensitivity == null)
+            {
+                Plugin.Log.LogWarning("Options (" + screen + "): sensitivity sliders not found, FIELD OF VIEW slider not added");
+            }
+            else if (AddSlider(lastSensitivity, FovRowName, "FIELD OF VIEW", FieldOfView.MinWidth, FieldOfView.MaxWidth, true, Plugin.FieldOfViewSetting))
+            {
+                Plugin.Log.LogInfo("Options (" + screen + "): added FIELD OF VIEW slider under the sensitivity sliders");
             }
             if (crosshair == null)
             {
@@ -93,33 +102,33 @@ namespace PatchFace
             }
         }
 
-        /// <summary>Returns true if the slider was added (false if it was already there).</summary>
-        private static bool AddMusicSlider(Slider volume)
+        /// <summary>Adds a copy of the template's row right under it. Returns true if added (false if it was already there).</summary>
+        private static bool AddSlider(Slider template, string rowName, string label, float min, float max, bool wholeNumbers, ConfigEntry<float> setting)
         {
-            Transform row = volume.transform.parent;
+            Transform row = template.transform.parent;
             Transform column = row != null ? row.parent : null;
-            if (column == null || column.Find(MusicRowName) != null)
+            if (column == null || column.Find(rowName) != null)
             {
                 return false;
             }
             GameObject copy = Object.Instantiate(row.gameObject, column);
-            copy.name = MusicRowName;
+            copy.name = rowName;
             copy.transform.SetSiblingIndex(row.GetSiblingIndex() + 1);
 
-            SetLabel(copy, "MUSIC");
+            SetLabel(copy, label);
             Slider slider = copy.GetComponentInChildren<Slider>(true);
             slider.onValueChanged = new Slider.SliderEvent();
-            slider.minValue = 0f;
-            slider.maxValue = 1f;
-            slider.wholeNumbers = false;
-            slider.SetValueWithoutNotify(Plugin.MusicVolumeSetting.Value);
-            slider.onValueChanged.AddListener(value => Plugin.MusicVolumeSetting.Value = value);
+            slider.minValue = min;
+            slider.maxValue = max;
+            slider.wholeNumbers = wholeNumbers;
+            slider.SetValueWithoutNotify(setting.Value);
+            slider.onValueChanged.AddListener(value => setting.Value = value);
             UseAutomaticNavigation(slider);
             foreach (SliderNumber number in copy.GetComponentsInChildren<SliderNumber>(true))
             {
                 number._sliderToMatch = slider;
             }
-            musicSliders.Add(slider);
+            sliders.Add(new KeyValuePair<Slider, ConfigEntry<float>>(slider, setting));
             return true;
         }
 

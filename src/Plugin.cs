@@ -23,6 +23,7 @@ namespace PatchFace
         internal static ConfigEntry<bool> ToggleSprint;
         internal static ConfigEntry<bool> ToggleAim;
         internal static ConfigEntry<float> MusicVolumeSetting;
+        internal static ConfigEntry<float> FieldOfViewSetting;
 
         private readonly AmmoHealthHud hud = new AmmoHealthHud();
         private bool configDirty;
@@ -41,6 +42,9 @@ namespace PatchFace
             ToggleAim = Config.Bind("Controls", "ToggleAim", true, "Press aim once to aim, press again to stop.");
             MusicVolumeSetting = Config.Bind("Audio", "MusicVolume", 1f,
                 new ConfigDescription("Music volume, from 0 (silent) to 1 (normal). Applied on top of the game's main volume.", new AcceptableValueRange<float>(0f, 1f)));
+            FieldOfViewSetting = Config.Bind("Video", "FieldOfView", FieldOfView.DefaultWidth,
+                new ConfigDescription("How wide the view is, in degrees across a 16:9 screen. 112 is the game's own view. Aiming keeps its normal zoom, and guns and hands always look as in the unmodded game.",
+                    new AcceptableValueRange<float>(FieldOfView.MinWidth, FieldOfView.MaxWidth)));
             Config.SaveOnConfigSet = false;
             Config.SettingChanged += (sender, args) =>
             {
@@ -55,13 +59,22 @@ namespace PatchFace
             optionsLateUpdate = OptionsInjector.LateUpdate;
             hudLateUpdate = hud.LateUpdate;
 
-            try
+            // One hook at a time, so a game update that breaks one hook leaves the others working.
+            Harmony harmony = new Harmony(Guid);
+            foreach (Type type in AccessTools.GetTypesFromAssembly(typeof(Plugin).Assembly))
             {
-                new Harmony(Guid).PatchAll(typeof(Plugin).Assembly);
-            }
-            catch (Exception e)
-            {
-                Log.LogError("Could not hook the game's input; toggle sprint and toggle aim will not work. " + e);
+                if (type.GetCustomAttributes(typeof(HarmonyPatch), false).Length == 0)
+                {
+                    continue;
+                }
+                try
+                {
+                    harmony.CreateClassProcessor(type).Patch();
+                }
+                catch (Exception e)
+                {
+                    Log.LogError("Could not hook the game (" + type.FullName + "); that feature will not work. " + e);
+                }
             }
             SceneManager.sceneLoaded += OnSceneLoaded;
             Log.LogInfo("PatchFace " + Version + " loaded. " + SettingsSummary());
@@ -134,7 +147,7 @@ namespace PatchFace
 
         private static string SettingsSummary()
         {
-            return "Music volume " + MusicVolumeSetting.Value.ToString("0.00") + ", toggle sprint " + (ToggleSprint.Value ? "on" : "off") + ", toggle aim " + (ToggleAim.Value ? "on" : "off");
+            return "Music volume " + MusicVolumeSetting.Value.ToString("0.00") + ", field of view " + FieldOfViewSetting.Value.ToString("0") + ", toggle sprint " + (ToggleSprint.Value ? "on" : "off") + ", toggle aim " + (ToggleAim.Value ? "on" : "off");
         }
     }
 }
